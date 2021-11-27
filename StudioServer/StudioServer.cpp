@@ -10,6 +10,11 @@
 #include <regex>
 #include <vector>
 
+const std::string serviceUsernameSSH = "teacher";
+const std::string servicePasswordSSH = "2122pass";
+
+const std::string platformToolsPath = "\"/home/itschool/Programs/android-sdk/platform-tools/";
+
 std::string ExecCmd(const wchar_t* cmd)
 {
     std::string strResult;
@@ -121,31 +126,22 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	//Asking for server
 	//Server choose by user
-	serverChoose:
-	std::cout << "Введите здесь номер своего сервера: ";
-	char serverNum = _getch();
+serverChoose:
+	std::string serverIP = "192.168.0.";
+	int serverIPEnding;
+
+	std::cout << "Введите здесь окончание IP адреса своего сервера: 192.168.0.";
+	std::cin >> serverIPEnding;
+
 	system("cls");
-	std::cout << std::endl;
-	std::string servers[] = {"192.168.2.243", "192.168.2.244", "192.168.2.245", "192.168.2.246"};
-	std::string serverIP;
-	switch(serverNum)
+
+	if(serverIPEnding < 1 || serverIPEnding > 254) 
 	{
-	case '1':
-		serverIP = servers[0];
-		break;
-	case '2':
-		serverIP = servers[1];
-		break;
-	case '3':
-		serverIP = servers[2];
-		break;
-	case '4':
-		serverIP = servers[3];
-		break;
-	default:
-		std::cerr << "Введён неверный номер сервера. Попробуйте ещё раз." << std::endl << std::endl;
+		std::cerr << "Введено неверное окончание для IP адреса сервера. Попробуйте ещё раз." << std::endl << std::endl;
 		goto serverChoose;
 	}
+
+	serverIP += std::to_string(serverIPEnding);
 
 	//Begin of preparing
 	adb_init:
@@ -282,7 +278,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		androidIP = smIfconfig[1];
 	}
 
-	if (androidIP.find("192.168.2.") == std::string::npos) 
+	if (androidIP.find("192.168.0.") == std::string::npos) 
 	{
 		try_again_message("ПЛАНШЕТНЫЙ КОМПЬЮТЕР ПОДКЛЮЧЕН К СЕТИ Wi-Fi, НО ЭТО НЕ ШКОЛЬНАЯ СЕТЬ.\n\nПодключите его к сети IT_SAMSUNG_номер-кабинета.\n\nЕсли он потребует пароль, то попросите преподавателя его ввести.");
 		goto get_android_ip;
@@ -313,9 +309,12 @@ int _tmain(int argc, _TCHAR* argv[])
 	//Connect android device to server
 	androidServerConnect:
 	system("cls");
+
+	std::string argSSHHeader = "echo (A) | \"C:\\adb\\sexec\" " + serviceUsernameSSH +"@" + serverIP + "-noRegistry -pw=" + servicePasswordSSH +" -cmd=";
+
 	std::cout << "Установка соединения с выбранным сервером..." << std::endl;
 
-	std::string arg = "\"C:\\adb\\sexec\" teacher@" + serverIP + " -hostKeyFile=C:\\adb\\Server" + serverNum + ".pub -pw=sudo19 -cmd=\"/home/general/android-sdk/platform-tools/adb connect " + androidIP + "\"";
+	std::string arg = argSSHHeader + platformToolsPath + "adb connect " + androidIP + "\"";
 	std::wstring wArg = std::wstring(arg.begin(), arg.end());
 	auto remoteAdbResponse = ExecCmd(wArg.c_str());
 	if (tcpIPResponse.find("failed to authenticate to") != std::string::npos) 
@@ -338,7 +337,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	system("cls");
 	std::cout << "Выполняется проверка правильности подключения..." << std::endl;
 	//very bad
-	std::string arg_ok = "\"C:\\adb\\sexec\" teacher@" + serverIP + " -hostKeyFile=C:\\adb\\Server" + serverNum + ".pub -pw=sudo19 -cmd=\"/home/general/android-sdk/platform-tools/adb devices\"";
+	std::string arg_ok = argSSHHeader + platformToolsPath + "adb devices\"";
 	std::wstring wArg_ok = std::wstring(arg_ok.begin(), arg_ok.end());
 	auto responseServerDevices = ExecCmd(wArg_ok.c_str());
 	auto vector_general = split(responseServerDevices, "List of devices attached\n");
@@ -427,19 +426,33 @@ int _tmain(int argc, _TCHAR* argv[])
 	_getch();
 	system("cls");
 	std::cout << "Отключение планшетного компьютера от сервера..." << std::endl;
-	std::string argD = "\"C:\\adb\\sexec\" teacher@" + serverIP + " -hostKeyFile=C:\\adb\\Server" + serverNum + ".pub -pw=sudo19 -cmd=\"/home/general/android-sdk/platform-tools/adb disconnect " + androidIP + "\"";
+	std::string argD = argSSHHeader + platformToolsPath + "adb disconnect " + androidIP + "\"";
 	std::wstring wArgD = std::wstring(argD.begin(), argD.end());
 	auto disconnectResponse = ExecCmd(wArgD.c_str());
 	if (disconnectResponse.find("disconnected") == std::string::npos)
 	{
 		system("cls");
-		std::cout << "Сервер не обнаружил подключенного к нему устройства." << std::endl << "Возможно, планшет подключился к другому серверу." << std::endl << "Выполняется попытка отключить планшет от всех серверов..." << std::endl;
-		for (int i = 0; i < sizeof(servers) / sizeof(servers[0]); i++)
+
+		std::string serverIPForClose = "192.168.0.";
+
+		std::cout << "Введите здесь окончание IP адреса своего сервера: 192.168.0.";
+		std::cin >> serverIPEnding;
+
+		system("cls");
+
+		if(serverIPEnding < 1 || serverIPEnding > 254) 
 		{
-			std::string argDL = "\"C:\\adb\\sexec\" teacher@" + servers[i] + " -hostKeyFile=C:\\adb\\Server" + std::to_string(i+1) + ".pub -pw=sudo19 -cmd=\"/home/general/android-sdk/platform-tools/adb disconnect " + androidIP + "\"";
-			std::wstring wArgDL = std::wstring(argDL.begin(), argDL.end());
-			ExecCmd(wArgDL.c_str());
+			std::cerr << "Введено неверное окончание для IP адреса сервера. Попробуйте ещё раз." << std::endl << std::endl;
+			goto serverChoose;
 		}
+
+		serverIP += std::to_string(serverIPEnding);
+
+		std::cout << "Сервер не обнаружил подключенного к нему устройства." << std::endl << "Возможно, планшет подключился к другому серверу." << std::endl << "Если вы действительно подключали данный планшет к другому серверу, то введите его IP адрес здесь, чтобы программа отключила устройство от него: 192.168.0.";
+		std::string argDL = "\"C:\\adb\\sexec\" teacher@" + servers[i] + " -hostKeyFile=C:\\adb\\Server" + std::to_string(i+1) + ".pub -pw=sudo19 -cmd=\"/home/general/android-sdk/platform-tools/adb disconnect " + androidIP + "\"";
+		
+		std::wstring wArgDL = std::wstring(argDL.begin(), argDL.end());
+		ExecCmd(wArgDL.c_str());
 	}
 	system("cls");
 	std::cout << "Перевод Android Debug Bridge в режим работы по USB..." << std::endl;
